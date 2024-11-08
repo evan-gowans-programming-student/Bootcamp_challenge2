@@ -1,0 +1,139 @@
+Attribute VB_Name = "Module1"
+Sub AnalyzeStockDataAllSheets()
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim ticker As String
+    Dim openingPrice As Double
+    Dim closingPrice As Double
+    Dim totalVolume As Double
+    Dim quarterlyChange As Double
+    Dim percentChange As Double
+    Dim outputRow As Long
+
+    Dim maxIncrease As Double, maxDecrease As Double, maxVolume As Double
+    Dim greatestIncreaseTicker As String, greatestDecreaseTicker As String, greatestVolumeTicker As String
+
+    ' Initialize max values
+    maxIncrease = -1
+    maxDecrease = 99999999 ' Start with a high number
+    maxVolume = 0
+
+    ' Loop through specified worksheets (Q1, Q2, Q3, Q4)
+    For Each ws In ThisWorkbook.Worksheets
+        If ws.Name = "Q1" Or ws.Name = "Q2" Or ws.Name = "Q3" Or ws.Name = "Q4" Then
+            lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row ' Find last row with data
+            outputRow = 2 ' Start outputting results from the second row to keep the header intact
+
+            ' Clear previous output
+            ws.Range("H1:K" & lastRow).ClearContents
+            ws.Range("M1:O10").ClearContents ' Clear previous output for Greatest values
+
+            ' Set the header for output columns
+            ws.Cells(1, 8).Value = "Ticker"
+            ws.Cells(1, 9).Value = "Quarterly Change"
+            ws.Cells(1, 10).Value = "Percent Change"
+            ws.Cells(1, 11).Value = "Total Stock Volume"
+
+            ' Loop through all the stocks
+            For i = 2 To lastRow
+                ' Check if this is a new ticker
+                If ws.Cells(i, 1).Value <> ws.Cells(i - 1, 1).Value Then
+                    ticker = ws.Cells(i, 1).Value
+                    openingPrice = ws.Cells(i, 3).Value
+                    totalVolume = 0 ' Initialize total volume for the new ticker
+                End If
+
+                ' Get closing price for the last entry of the ticker
+                If i = lastRow Or ws.Cells(i + 1, 1).Value <> ticker Then
+                    closingPrice = ws.Cells(i, 6).Value
+                    totalVolume = totalVolume + ws.Cells(i, 7).Value
+
+                    ' Calculate quarterly change
+                    quarterlyChange = closingPrice - openingPrice
+                    ' Calculate percentage change
+                    If openingPrice <> 0 Then
+                        percentChange = (quarterlyChange / openingPrice) * 100
+                    Else
+                        percentChange = 0
+                    End If
+
+                    ' Output results
+                    ws.Cells(outputRow, 8).Value = ticker ' Ticker
+                    ws.Cells(outputRow, 9).Value = quarterlyChange ' Quarterly Change
+                    ws.Cells(outputRow, 10).Value = percentChange / 100 ' Divide by 100 to convert to a decimal
+                    ws.Cells(outputRow, 10).NumberFormat = "0.00%" ' Format as percentage
+                    ws.Cells(outputRow, 11).Value = totalVolume ' Total Stock Volume
+
+                    ' Check for greatest values
+                    If percentChange > maxIncrease Then
+                        maxIncrease = percentChange
+                        greatestIncreaseTicker = ticker
+                    End If
+                    If percentChange < maxDecrease Then
+                        maxDecrease = percentChange
+                        greatestDecreaseTicker = ticker
+                    End If
+                    If totalVolume > maxVolume Then
+                        maxVolume = totalVolume
+                        greatestVolumeTicker = ticker
+                    End If
+
+                    outputRow = outputRow + 1 ' Move to the next row for output
+                Else
+                    totalVolume = totalVolume + ws.Cells(i, 7).Value ' Accumulate volume
+                End If
+            Next i
+            
+            ' Output greatest values at the top of columns M, N, and O
+            ws.Cells(1, 13).Value = "" ' Leave cell M1 blank
+            ws.Cells(2, 13).Value = "Greatest % Increase"
+            ws.Cells(2, 14).Value = greatestIncreaseTicker
+            ws.Cells(2, 15).Value = Format(maxIncrease, "0.00") & "%"
+
+            ws.Cells(3, 13).Value = "Greatest % Decrease"
+            ws.Cells(3, 14).Value = greatestDecreaseTicker
+            ws.Cells(3, 15).Value = Format(maxDecrease, "0.00") & "%"
+
+            ws.Cells(4, 13).Value = "Greatest Total Volume"
+            ws.Cells(4, 14).Value = greatestVolumeTicker
+            ws.Cells(4, 15).Value = maxVolume
+
+            ' Optional: Add formatting to the output section for clarity
+            ws.Range(ws.Cells(1, 13), ws.Cells(4, 15)).Font.Bold = True
+
+            ' Apply conditional formatting for Quarterly Change Column (Column I)
+            With ws.Range("I2:I" & outputRow - 1).FormatConditions
+                .Delete ' Clear previous conditions
+                ' Condition for values greater than 0
+                .Add Type:=xlCellValue, Operator:=xlGreater, Formula1:=0
+                .Item(.Count).Interior.Color = RGB(0, 255, 0) ' Green
+                
+                ' Condition for values less than 0
+                .Add Type:=xlCellValue, Operator:=xlLess, Formula1:=0
+                .Item(.Count).Interior.Color = RGB(255, 0, 0) ' Red
+                
+                ' Condition for values equal to 0
+                .Add Type:=xlCellValue, Operator:=xlEqual, Formula1:=0
+                .Item(.Count).Interior.Color = RGB(255, 255, 255) ' White
+            End With
+
+            ' Apply the same conditional formatting for Percent Change Column (Column J)
+            With ws.Range("J2:J" & outputRow - 1).FormatConditions
+                .Delete ' Clear previous conditions
+                ' Condition for values greater than 0
+                .Add Type:=xlCellValue, Operator:=xlGreater, Formula1:=0
+                .Item(.Count).Interior.Color = RGB(0, 255, 0) ' Green
+                
+                ' Condition for values less than 0
+                .Add Type:=xlCellValue, Operator:=xlLess, Formula1:=0
+                .Item(.Count).Interior.Color = RGB(255, 0, 0) ' Red
+                
+                ' Condition for values equal to 0
+                .Add Type:=xlCellValue, Operator:=xlEqual, Formula1:=0
+                .Item(.Count).Interior.Color = RGB(255, 255, 255) ' White
+            End With
+        End If
+    Next ws
+
+    MsgBox "Stock analysis completed!"
+End Sub
